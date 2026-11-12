@@ -7,8 +7,8 @@ Página interativa (three.js) para apresentar o projeto de conforto térmico e l
 Abra `index.html` no navegador (o arquivo é autocontido: modelo e fotos estão embutidos; só o three.js vem do CDN jsDelivr). Para publicar, ative o GitHub Pages na branch `main`, pasta raiz.
 
 - **Sol**: controla a hora do dia (0h a 24h, de 5 em 5 minutos), com botão "Meio-dia" e animação do dia. A data é a de hoje (fuso de São Paulo).
-- **Câmera**: galeria com as 8 fotos do local, com zoom (pinça, toque duplo, roda do mouse, botões + e −). Botão Voltar no topo. Cada foto também é um pino no modelo; tocar no pino abre a foto.
-- **Ajustar posição dos pinos**: no fim da tela da Câmera. Escolha um pino, toque no piso do modelo, e use "Copiar posições" para guardar as coordenadas.
+- **Fotos**: galeria com as 8 fotos do local, com zoom (pinça, toque duplo, roda do mouse, botões + e −). Botão Voltar no topo. Os pinos numerados só aparecem no modelo depois de abrir Fotos (botão "Ocultar pinos" para esconder); tocar num pino abre a foto.
+- **Ajustar posição dos pinos**: no fim da tela de Fotos. Escolha um pino, toque no piso do modelo, e use "Copiar posições" para guardar as coordenadas.
 
 ## Premissas
 

@@ -85,6 +85,7 @@ input[type=date]{font:inherit;font-family:var(--f-mono);font-size:.9rem;backgrou
 .pin b{transform:rotate(45deg);font-family:var(--f-mono);font-weight:600;font-size:.8rem;color:#1b1205}
 .pin.sel span{background:#fff;border-color:var(--accent);outline:3px solid var(--accent)}
 .pin.hid{display:none}
+.pinsoff{position:absolute;right:max(12px,env(safe-area-inset-right,0px));top:12px;background:var(--panel);min-height:40px}
 .toast{position:absolute;left:50%;top:70px;transform:translateX(-50%);max-width:calc(100% - 24px);background:var(--fg);color:var(--panel);border-radius:8px;padding:8px 12px;font-size:.8rem;pointer-events:none;text-align:center}
 .editbar{position:absolute;right:max(12px,env(safe-area-inset-right,0px));top:12px;width:min(300px,calc(100% - 24px - 120px));min-width:220px;background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;font-size:.76rem;color:var(--muted)}
 #pinOut{width:100%;min-height:72px;font-family:var(--f-mono);font-size:.66rem;background:var(--chip);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px;resize:vertical}
@@ -148,6 +149,7 @@ input[type=date]{font:inherit;font-family:var(--f-mono);font-size:.9rem;backgrou
       <textarea id="pinOut" readonly aria-label="Posições dos pinos"></textarea>
       <div class="row"><button class="ghost" id="copyPins">Copiar posições</button><button class="ghost" id="resetPins">Restaurar</button><button class="play" id="editDone">Concluir</button></div>
     </div>
+    <button class="ghost pinsoff" id="pinsOff" hidden>Ocultar pinos ✕</button>
     <div class="toast" id="toast" hidden></div>
     <div class="loading" id="loading">Carregando modelo…</div>
 
@@ -171,7 +173,7 @@ input[type=date]{font:inherit;font-family:var(--f-mono);font-size:.9rem;backgrou
     </button>
     <button id="camBtn" aria-pressed="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2.2l1.4-2h6.8l1.4 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.8"/></svg>
-      <span>Câmera</span><span class="n" id="camN"></span>
+      <span>Fotos</span><span class="n" id="camN"></span>
     </button>
   </nav>
 </div>
@@ -400,7 +402,7 @@ const PHOTO_SRC=["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAkGBwg
 const PKEY='museu-pins-v1'; let savedPins={};
 try{savedPins=JSON.parse(localStorage.getItem(PKEY)||'{}')||{};}catch(e){}
 PHOTOS.forEach((p,i)=>{p.src=PHOTO_SRC[i];p.x0=p.x;p.z0=p.z;if(Array.isArray(savedPins[p.id])){p.x=savedPins[p.id][0];p.z=savedPins[p.id][1];}});
-const pinLayer=$('pins'); let selPin=-1, editing=false;
+const pinLayer=$('pins'); pinLayer.hidden=true; let selPin=-1, editing=false, pinsOn=false;
 const toastEl=$('toast'); let toastT=0;
 function toast(t){toastEl.textContent=t;toastEl.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>toastEl.hidden=true,2600);}
 $('camN').textContent=PHOTOS.length+' fotos';
@@ -417,9 +419,10 @@ function selectPin(i){selPin=i;PHOTOS.forEach((p,k)=>p.el.classList.toggle('sel'
 const pinText=()=>PHOTOS.map(p=>`${p.id}: x=${p.x.toFixed(1)}, z=${p.z.toFixed(1)}  (${p.title})`).join('\n');
 function savePins(){const o={};PHOTOS.forEach(p=>{o[p.id]=[+p.x.toFixed(2),+p.z.toFixed(2)];});try{localStorage.setItem(PKEY,JSON.stringify(o));}catch(e){}$('pinOut').value=pinText();}
 $('pinOut').value=pinText();
-function setEditing(on){editing=on;$('editbar').hidden=!on;if(!on)selectPin(-1);else{$('pinOut').value=pinText();$('sheet').hidden=true;$('sunBtn').setAttribute('aria-pressed',false);}}
+function setEditing(on){editing=on;$('editbar').hidden=!on;if(on)setPins(true);else setPins(pinsOn);if(!on)selectPin(-1);else{$('pinOut').value=pinText();$('sheet').hidden=true;$('sunBtn').setAttribute('aria-pressed',false);}}
 $('editBtn').onclick=()=>{closeCam();setEditing(true);};
 $('editDone').onclick=()=>setEditing(false);
+$('pinsOff').onclick=()=>setPins(false);
 $('copyPins').onclick=async()=>{try{await navigator.clipboard.writeText(pinText());toast('Posições copiadas');}catch(e){$('pinOut').focus();$('pinOut').select();toast('Selecione e copie o texto');}};
 $('resetPins').onclick=()=>{PHOTOS.forEach(p=>{p.x=p.x0;p.z=p.z0;});savePins();toast('Posições originais restauradas');};
 const ray=new THREE.Raycaster(), ndc=new THREE.Vector2(), gplane=new THREE.Plane(new THREE.Vector3(0,1,0),-0.5);
@@ -434,6 +437,7 @@ canvas.addEventListener('pointerup',e=>{
 });
 const pv=new THREE.Vector3();
 function updatePins(){
+  if(!pinsOn)return;
   const w=canvas.clientWidth,h=canvas.clientHeight; model.updateMatrixWorld();
   for(const p of PHOTOS){pv.set(p.x,0.5,p.z);model.localToWorld(pv);pv.project(camera);
     const vis=pv.z<1&&pv.z>-1&&Math.abs(pv.x)<1.1&&Math.abs(pv.y)<1.1; p.el.classList.toggle('hid',!vis);
@@ -442,13 +446,14 @@ function updatePins(){
 
 /* ---------- câmera: galeria com zoom ---------- */
 let viewIdx=-1, viewFrom='grid';
-function openCam(idx){ $('cam').hidden=false; $('sheet').hidden=true; $('sunBtn').setAttribute('aria-pressed',false); $('camBtn').setAttribute('aria-pressed',true);
+function setPins(on){ pinsOn=on; pinLayer.hidden=!on; $('pinsOff').hidden=!on||editing; $('camBtn').setAttribute('aria-pressed',on); }
+function openCam(idx){ setPins(true); $('cam').hidden=false; $('sheet').hidden=true; $('sunBtn').setAttribute('aria-pressed',false); 
   if(typeof idx==='number') openView(idx,'pin'); else showGrid(); }
-function closeCam(){ $('cam').hidden=true; $('camBtn').setAttribute('aria-pressed',false); viewIdx=-1; }
+function closeCam(){ $('cam').hidden=true; viewIdx=-1; $('camBtn').setAttribute('aria-pressed',pinsOn); }
 function showGrid(){ viewIdx=-1; $('camGrid').hidden=false; $('camView').hidden=true; $('camTitle').textContent='Fotos do local'; $('camCnt').textContent=PHOTOS.length+' fotos'; }
 function openView(i,from){
   viewIdx=(i+PHOTOS.length)%PHOTOS.length; viewFrom=from===undefined?viewFrom:from; const p=PHOTOS[viewIdx];
-  $('cam').hidden=false; $('camBtn').setAttribute('aria-pressed',true);
+  setPins(true); $('cam').hidden=false;
   $('camGrid').hidden=true; $('camView').hidden=false;
   $('zimg').src=p.src; $('zimg').alt=p.title; zReset();
   $('camTitle').textContent=p.title; $('camCnt').textContent=`${viewIdx+1} / ${PHOTOS.length}`;
