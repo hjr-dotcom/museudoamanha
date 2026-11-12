@@ -98,6 +98,22 @@ input[type=date]{font:inherit;font-family:var(--f-mono);font-size:.9rem;backgrou
 .thumbrow img{width:100%;height:100%;object-fit:cover;display:block}
 .thumbrow i{position:absolute;left:4px;top:4px;font-style:normal;font-family:var(--f-mono);font-size:.7rem;font-weight:600;background:var(--accent);color:#1b1205;border-radius:10px;min-width:20px;padding:1px 5px;text-align:center}
 .thumbrow button.sel{border-color:var(--accent)}
+.gesture{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);z-index:3;pointer-events:none;display:flex;gap:14px;align-items:stretch;transition:opacity .5s}
+.gesture.out{opacity:0}
+.gesture .g{background:color-mix(in srgb,var(--panel) 90%,transparent);border:1px solid var(--line);backdrop-filter:blur(6px);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;align-items:center;gap:8px;width:136px;text-align:center;font-size:.78rem;line-height:1.3;box-shadow:0 6px 24px rgba(0,0,0,.22)}
+.gesture .g b{font-weight:600;display:block;font-size:.84rem}
+.gesture .g span{color:var(--muted)}
+.gesture svg{width:64px;height:64px;overflow:visible}
+.gesture .d{fill:var(--accent);stroke:#fff;stroke-width:2}
+.gesture .tr{fill:none;stroke:var(--muted);stroke-width:2;stroke-dasharray:3 5;stroke-linecap:round}
+@keyframes gRot{0%,100%{transform:translateX(-18px)}50%{transform:translateX(18px)}}
+@keyframes gA{0%,100%{transform:translate(-4px,4px)}50%{transform:translate(-18px,18px)}}
+@keyframes gB{0%,100%{transform:translate(4px,-4px)}50%{transform:translate(18px,-18px)}}
+.gesture .r{animation:gRot 2s ease-in-out infinite}
+.gesture .pa{animation:gA 2s ease-in-out infinite}
+.gesture .pb{animation:gB 2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.gesture .r,.gesture .pa,.gesture .pb{animation:none}}
+@media (max-width:400px){.gesture{gap:10px}.gesture .g{width:122px;padding:10px}}
 .toast{position:absolute;left:50%;top:70px;transform:translateX(-50%);max-width:calc(100% - 24px);background:var(--fg);color:var(--panel);border-radius:8px;padding:8px 12px;font-size:.8rem;pointer-events:none;text-align:center}
 .editbar{position:absolute;right:max(12px,env(safe-area-inset-right,0px));top:12px;width:min(300px,calc(100% - 24px - 120px));min-width:220px;background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;font-size:.76rem;color:var(--muted)}
 #pinOut{width:100%;min-height:72px;font-family:var(--f-mono);font-size:.66rem;background:var(--chip);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px;resize:vertical}
@@ -160,6 +176,10 @@ input[type=date]{font:inherit;font-family:var(--f-mono);font-size:.9rem;backgrou
       <div id="editHint">Modo de ajuste: toque num pino e depois no piso do modelo.</div>
       <textarea id="pinOut" readonly aria-label="Posições dos pinos"></textarea>
       <div class="row"><button class="ghost" id="copyPins">Copiar posições</button><button class="ghost" id="resetPins">Restaurar</button><button class="play" id="editDone">Concluir</button></div>
+    </div>
+    <div class="gesture" id="gesture" hidden aria-hidden="true">
+      <div class="g"><svg viewBox="-32 -32 64 64"><path class="tr" d="M-26 8 Q0 -14 26 8"/><circle class="d r" cx="0" cy="0" r="8"/></svg><div><b id="gT1">Arraste</b><span id="gS1">para girar o modelo</span></div></div>
+      <div class="g"><svg viewBox="-32 -32 64 64"><path class="tr" d="M-24 24 L24 -24"/><circle class="d pa" cx="-8" cy="8" r="8"/><circle class="d pb" cx="8" cy="-8" r="8"/></svg><div><b id="gT2">Pinça</b><span id="gS2">para aproximar e afastar</span></div></div>
     </div>
     <div class="toast" id="toast" hidden></div>
     <div class="loading" id="loading">Carregando modelo…</div>
@@ -318,8 +338,19 @@ loader.parse(b64ToBuf($('glb').textContent),'',gltf=>{
   // piso no lugar do espelho d'água que não existe, atrás do disco
   {const g=new THREE.PlaneGeometry(66.8,50.2);g.rotateX(-Math.PI/2);const f=new THREE.Mesh(g,MATS.piso);f.position.set(-95.35,-0.96,-1.05);f.receiveShadow=true;model.add(f);}
   $('loading').hidden=true;
+  showGesture();
   update();
 },err=>{$('loading').textContent='Não foi possível carregar o modelo: '+err.message;});
+
+/* ---------- aviso de gestos ---------- */
+let gTimer=0;
+function showGesture(){
+  const coarse=matchMedia('(pointer:coarse)').matches;
+  if(!coarse){$('gT1').textContent='Arraste';$('gS1').textContent='para girar · botão direito move';$('gT2').textContent='Roda do mouse';$('gS2').textContent='para aproximar e afastar';}
+  $('gesture').classList.remove('out'); $('gesture').hidden=false; clearTimeout(gTimer); gTimer=setTimeout(hideGesture,9000);
+}
+function hideGesture(){ clearTimeout(gTimer); const g=$('gesture'); if(g.hidden||g.classList.contains('out'))return; g.classList.add('out'); setTimeout(()=>{g.hidden=true;},600); }
+canvas.addEventListener('pointerdown',hideGesture); canvas.addEventListener('wheel',hideGesture,{passive:true});
 
 /* ---------- compass rose (true-north frame) ---------- */
 function textSprite(txt,size,color){
